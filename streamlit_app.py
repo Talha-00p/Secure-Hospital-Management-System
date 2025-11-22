@@ -58,14 +58,7 @@ from security import get_fernet, verify_password
 if not os.path.exists('hospital.db'):
     try:
         import db_init
-        # Ensure DB and sample data are created on first run (Streamlit Cloud ephemeral file systems
-        # can start without the DB present). Call the init functions explicitly.
-        try:
-            db_init.create_tables()
-            db_init.insert_sample_data()
-        except Exception:
-            # If functions are not available or fail, ignore and let later DB operations surface errors.
-            pass
+        # if db_init creates DB on import/run, call the init function; otherwise import causes creation
     except Exception:
         pass
 
