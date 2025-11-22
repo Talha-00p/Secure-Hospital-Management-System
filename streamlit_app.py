@@ -381,6 +381,64 @@ def main():
                         except Exception as e:
                             st.error(f'Export error: {e}')
 
+                # Admin should also be able to add and edit patient records (full privileges)
+                add_tab_admin, edit_tab_admin = st.tabs(['Add Patient', 'Edit Patients'])
+                with add_tab_admin:
+                    conn = sqlite3.connect(DB_NAME)
+                    c = conn.cursor()
+                    with st.form('admin_add_patient_form'):
+                        name = st.text_input('Patient Name')
+                        contact = st.text_input('Contact')
+                        diagnosis = st.text_input('Diagnosis')
+                        submitted = st.form_submit_button('Add Patient')
+                        if submitted:
+                            date_added = datetime.now().isoformat()
+                            try:
+                                c.execute('INSERT INTO patients (name, contact, diagnosis, date_added) VALUES (?, ?, ?, ?)',
+                                          (name, contact, diagnosis, date_added))
+                                conn.commit()
+                                log_action(st.session_state['user_id'], role, 'add_patient', f'Admin added patient {name}.')
+                                st.success('Patient added successfully.')
+                            except Exception as e:
+                                st.error(f'Add failed: {e}')
+                    conn.close()
+                with edit_tab_admin:
+                    conn = sqlite3.connect(DB_NAME)
+                    c = conn.cursor()
+                    c.execute("SELECT patient_id, anonymized_name, anonymized_contact, diagnosis FROM patients WHERE deleted_at IS NULL OR deleted_at=''")
+                    patients = c.fetchall()
+                    for pid, anon_name, anon_contact, diagnosis in patients:
+                        display_name = anon_name if anon_name else 'REDACTED'
+                        display_contact = anon_contact if anon_contact else 'REDACTED'
+                        with st.expander(f'Edit {display_name} ({pid})'):
+                            st.write(f'Contact: {display_contact}')
+                            new_name = st.text_input(f'New Name for {pid} (will overwrite if provided)', value='', key=f'admin_name_{pid}')
+                            new_contact = st.text_input(f'New Contact for {pid} (will overwrite if provided)', value='', key=f'admin_contact_{pid}')
+                            new_diag = st.text_input(f'New Diagnosis for {pid}', value=diagnosis, key=f'admin_diag_{pid}')
+                            if st.button(f'Update {pid}', key=f'admin_update_{pid}'):
+                                updates = []
+                                params = []
+                                if new_name.strip():
+                                    updates.append('name=?')
+                                    params.append(new_name.strip())
+                                if new_contact.strip():
+                                    updates.append('contact=?')
+                                    params.append(new_contact.strip())
+                                if new_diag.strip() and new_diag.strip() != diagnosis:
+                                    updates.append('diagnosis=?')
+                                    params.append(new_diag.strip())
+                                if updates:
+                                    params.append(pid)
+                                    sql = f"UPDATE patients SET {', '.join(updates)} WHERE patient_id=?"
+                                    try:
+                                        c.execute(sql, tuple(params))
+                                        conn.commit()
+                                        log_action(st.session_state['user_id'], role, 'edit_patient', f'Admin edited patient {pid}.')
+                                        st.success('Patient record updated.')
+                                    except Exception as e:
+                                        st.error(f'Update failed: {e}')
+                    conn.close()
+
             with anon_tab:
                 st.caption('Tip: Apply masking or encryption, decrypt, and view anonymized data.')
                 st.write('Mask, encrypt, decrypt, and view anonymized patient data.')
