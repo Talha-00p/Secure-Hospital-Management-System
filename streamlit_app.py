@@ -58,7 +58,14 @@ from security import get_fernet, verify_password
 if not os.path.exists('hospital.db'):
     try:
         import db_init
-        # if db_init creates DB on import/run, call the init function; otherwise import causes creation
+        # Ensure DB and sample data are created on first run (Streamlit Cloud ephemeral file systems
+        # can start without the DB present). Call the init functions explicitly.
+        try:
+            db_init.create_tables()
+            db_init.insert_sample_data()
+        except Exception:
+            # If functions are not available or fail, ignore and let later DB operations surface errors.
+            pass
     except Exception:
         pass
 
@@ -74,48 +81,6 @@ FERNET_KEY_FILE = 'fernet.key'
 
 # Fernet key management
 APP_START_TIME = time.time()
-
-# Ensure database and sample users exist on first run (useful for cloud deploys)
-try:
-    # If DB file missing, create tables and insert sample data
-    if not os.path.exists(DB_NAME):
-        try:
-            import db_init
-            db_init.create_tables()
-            db_init.insert_sample_data()
-        except Exception:
-            pass
-    else:
-        # If DB exists but users table is empty or missing, ensure tables and sample users
-        try:
-            conn = sqlite3.connect(DB_NAME)
-            c = conn.cursor()
-            c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
-            if not c.fetchone():
-                import db_init
-                db_init.create_tables()
-                db_init.insert_sample_data()
-            else:
-                c.execute('SELECT COUNT(*) FROM users')
-                row = c.fetchone()
-                if not row or row[0] == 0:
-                    import db_init
-                    db_init.insert_sample_data()
-        except Exception:
-            # best-effort: try to create tables
-            try:
-                import db_init
-                db_init.create_tables()
-                db_init.insert_sample_data()
-            except Exception:
-                pass
-        finally:
-            try:
-                conn.close()
-            except Exception:
-                pass
-except Exception:
-    pass
 
 def authenticate_user(username, password):
     try:
