@@ -4,7 +4,10 @@ from pathlib import Path
 from security import hash_password
 
 # Database initialization script for Hospital Management System
-DB_NAME = 'hospital.db'
+# Use an absolute path based on this file so scripts running from other
+# working directories still find the same database file.
+BASE_DIR = Path(__file__).parent.resolve()
+DB_NAME = str(BASE_DIR / 'hospital.db')
 
 def create_tables():
     conn = sqlite3.connect(DB_NAME)

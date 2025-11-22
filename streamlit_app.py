@@ -54,11 +54,31 @@ import time
 import io
 import os
 from security import get_fernet, verify_password
+import db_init
 
-if not os.path.exists('hospital.db'):
+# Use the DB path defined in db_init (absolute path next to repository files)
+DB_NAME = db_init.DB_NAME
+
+# Ensure DB and tables exist. Insert sample data only when users table is empty.
+if not os.path.exists(DB_NAME):
     try:
-        import db_init
-        # if db_init creates DB on import/run, call the init function; otherwise import causes creation
+        db_init.create_tables()
+        # insert sample data only if users table is empty
+        try:
+            import sqlite3
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            c.execute('SELECT COUNT(1) FROM users')
+            row = c.fetchone()
+            conn.close()
+            if not row or row[0] == 0:
+                db_init.insert_sample_data()
+        except Exception:
+            # best effort; don't crash app startup
+            try:
+                db_init.insert_sample_data()
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -69,7 +89,6 @@ st.set_page_config(
     layout="wide"
 )
 
-DB_NAME = 'hospital.db'
 FERNET_KEY_FILE = 'fernet.key'
 
 # Fernet key management
