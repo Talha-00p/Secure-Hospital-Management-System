@@ -55,6 +55,13 @@ import io
 import os
 from security import get_fernet, verify_password
 
+if not os.path.exists('hospital.db'):
+    try:
+        import db_init
+        # if db_init creates DB on import/run, call the init function; otherwise import causes creation
+    except Exception:
+        pass
+
 # Set page config for better UI
 st.set_page_config(
     page_title="Hospital Management System",
